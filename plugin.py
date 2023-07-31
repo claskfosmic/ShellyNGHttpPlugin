@@ -1,18 +1,25 @@
-# ShellyCloudPlugin
+# ShellyNGHTTPPlugin
 #
-# Author: Mario Peters
+# NG Author: Claskfosmic
+# Original Author: Mario Peters
 #
 """
-<plugin key="ShellyCloudPlugin" name="Shelly Cloud Plugin" author="Mario Peters" version="1.0.1" wikilink="https://github.com/mario-peters/ShellyCloudPlugin/wiki" externallink="https://github.com/mario-peters/ShellyCloudPlugin">
+<plugin key="ShellyNGHTTPPlugin" name="Shelly NG HTTP Plugin" author="Claskfosmic" version="0.0.1" wikilink="https://github.com/claskfosmic/ShellyNGHttpPlugin/wiki" externallink="https://github.com/claskfosmic/ShellyNGHttpPlugin">
     <description>
-        <h2>Shelly Cloud Plugin</h2><br/>
-        Plugin for controlling Shelly devices.
+        <h2>Shelly NG HTTP Plugin</h2><br/>
+        Plugin for controlling Shelly devices via HTTP, using their local IP-adres and credentials. <b>This plug-in doesn't connect to the cloud/to the internet.</b>
+        This plugin support Shelly Devices from the first generation and the second generation of Shelly devices, called Shelly-NG.
         <h3>Configuration</h3>
         <ul style="list-style-type:square">
             <li>IP Address is the IP Address of the Shelly device. Default value is 127.0.0.1</li>
-            <li>Username</li>
-            <li>Password</li>
-            <li>Type is the type of Shelly device you want to add. Shelly 1, Shelly PM, Shelly 2.5 (relay and roller), Shelly Dimmer, Shelly RGBW2 (color and white), Shelly Bulb, Shelly Door/Window 2 and Shelly Plug-S are currently supported</li>
+            <li>The username to login onto the Shelly device.</li>
+            <li>The password to login onto the local Shelly device.</li>
+            <li>Type is the type of Shelly device you want to add.<br/>
+            <b>Supported Shelly Gen 1 Devices:</b><br/>
+            Shelly 1, Shelly PM, Shelly 2.5 (relay and roller), Shelly Dimmer, Shelly RGBW2 (color and white), Shelly Bulb, Shelly Door/Window 2 and Shelly Plug-S<br/>
+            <br/><b>Supported Shelly Gen 2 Devices:</b><br/>
+            Shelly Plus 1 PM
+            </li>
         </ul>
         <br/><br/>
     </description>
@@ -40,6 +47,8 @@
                <option label="Shelly Gas" value="SHGS-1"/>
                <option label="Shelly 3EM" value="SHEM-3"/>
                <option label="Shelly EM" value="SHEM"/>
+
+               <option label="Shelly Plus 1PM" value="SHP1PM"/>
             </options> 
         </param>
        <param field="Mode2" label="Heartbeat In Seconds" width="50px" required="true" default="30"/>
@@ -73,10 +82,46 @@ class BasePlugin:
     SHELLY_EM="SHEM"
     SHELLY_3EM="SHEM-3"
 
+    SHELLY_PLUS_1_PM="SHP1PM"
+
+    SHELLY_GEN_1_DEVICES = [
+        SHELLY_1,
+        SHELLY_IX3,
+        SHELLY_1PM,
+        SHELLY_1L,
+        SHELLY_25,
+        SHELLY_MOTION,
+        SHELLY_TRV,
+        SHELLY_PLUG,
+        SHELLY_BULB,
+        SHELLY_RGBW2,
+        SHELLY_DIMMER,
+        SHELLY_HT,
+        SHELLY_SMOKE,
+        SHELLY_FLOOD,
+        SHELLY_DW,
+        SHELLY_GAS,
+        SHELLY_EM,
+        SHELLY_3EM
+    ]
+
+    SHELLY_GEN_2_DEVICES = [
+        SHELLY_PLUS_1_PM
+    ]
+
+    SHELLY_GEN_1="GEN1"
+    SHELLY_GEN_2="GEN2"
+
     HeartbeatInSeconds = 30
 
     def __init__(self):
         return
+    
+    def getGen(self):
+        if Parameters["Mode1"] in self.SHELLY_GEN_2_DEVICES:
+            return self.SHELLY_GEN_2
+        elif Parameters["Mode1"] in self.SHELLY_GEN_1_DEVICES:
+            return self.SHELLY_GEN_1
 
     def onStart(self):
         Domoticz.Log("onStart called")
@@ -87,49 +132,89 @@ class BasePlugin:
         Domoticz.Heartbeat(self.HeartbeatInSeconds)
         try:
             headers = {'content-type':'application/json'}
-            response_shelly = requests.get("http://"+Parameters["Address"]+"/settings", headers=headers, auth=(Parameters["Username"], Parameters["Password"]), timeout=(10,10))
-            json_items = json.loads(response_shelly.text)
-            response_shelly.close()
-            if len(Devices) == 0:
-                if Parameters["Mode1"] == self.SHELLY_1:
-                    createSHSW1(json_items)
-                elif Parameters["Mode1"] == self.SHELLY_IX3:
-                    createSHIX3(json_items)
-                elif Parameters["Mode1"] == self.SHELLY_1L or Parameters["Mode1"] == self.SHELLY_1PM:
-                    createSHSWL(json_items)
-                elif Parameters["Mode1"] == self.SHELLY_25:
-                    createSHSW25(self,json_items)
-                elif Parameters["Mode1"] == self.SHELLY_MOTION:
-                    createMOTION(json_items)
-                elif Parameters["Mode1"] == self.SHELLY_TRV:
-                    createTRV(json_items)
-                elif Parameters["Mode1"] == self.SHELLY_PLUG:
-                    createSHPLG(json_items)
-                elif Parameters["Mode1"] == self.SHELLY_RGBW2 or Parameters["Mode1"] == self.SHELLY_BULB:
-                    createSHRGBW2(self,json_items)
-                elif Parameters["Mode1"] == self.SHELLY_DIMMER:
-                    createSHDM1(json_items)
-                elif Parameters["Mode1"] == self.SHELLY_HT:
-                    createHT()
-                elif Parameters["Mode1"] == self.SHELLY_SMOKE:
-                    createSMOKE()
-                elif Parameters["Mode1"] == self.SHELLY_FLOOD:
-                    createFlood()
-                elif Parameters["Mode1"] == self.SHELLY_DW:
-                    createSHDW2()
-                elif Parameters["Mode1"] == self.SHELLY_GAS:
-                    createGAS()
-                elif Parameters["Mode1"] == self.SHELLY_EM:
-                    createEM(json_items, "EM")
-                elif Parameters["Mode1"] == self.SHELLY_3EM:
-                    createEM(json_items, "3EM")
+
+            if self.getGen() == self.SHELLY_GEN_1:
+                response_shelly = requests.get("http://"+Parameters["Address"]+"/settings", headers=headers, auth=(Parameters["Username"], Parameters["Password"]), timeout=(10,10))
+                json_items = json.loads(response_shelly.text)
+                response_shelly.close()
+                if len(Devices) == 0:
+                    if Parameters["Mode1"] == self.SHELLY_1:
+                        createSHSW1(json_items)
+                    elif Parameters["Mode1"] == self.SHELLY_IX3:
+                        createSHIX3(json_items)
+                    elif Parameters["Mode1"] == self.SHELLY_1L or Parameters["Mode1"] == self.SHELLY_1PM:
+                        createSHSWL(json_items)
+                    elif Parameters["Mode1"] == self.SHELLY_25:
+                        createSHSW25(self,json_items)
+                    elif Parameters["Mode1"] == self.SHELLY_MOTION:
+                        createMOTION(json_items)
+                    elif Parameters["Mode1"] == self.SHELLY_TRV:
+                        createTRV(json_items)
+                    elif Parameters["Mode1"] == self.SHELLY_PLUG:
+                        createSHPLG(json_items)
+                    elif Parameters["Mode1"] == self.SHELLY_RGBW2 or Parameters["Mode1"] == self.SHELLY_BULB:
+                        createSHRGBW2(self,json_items)
+                    elif Parameters["Mode1"] == self.SHELLY_DIMMER:
+                        createSHDM1(json_items)
+                    elif Parameters["Mode1"] == self.SHELLY_HT:
+                        createHT()
+                    elif Parameters["Mode1"] == self.SHELLY_SMOKE:
+                        createSMOKE()
+                    elif Parameters["Mode1"] == self.SHELLY_FLOOD:
+                        createFlood()
+                    elif Parameters["Mode1"] == self.SHELLY_DW:
+                        createSHDW2()
+                    elif Parameters["Mode1"] == self.SHELLY_GAS:
+                        createGAS()
+                    elif Parameters["Mode1"] == self.SHELLY_EM:
+                        createEM(json_items, "EM")
+                    elif Parameters["Mode1"] == self.SHELLY_3EM:
+                        createEM(json_items, "3EM")
+                    else:
+                        Domoticz.Log("Type: "+Parameters["Mode1"])
                 else:
-                    Domoticz.Log("Type: "+Parameters["Mode1"])
-            else:
-                if Parameters["Mode1"] == self.SHELLY_25:
-                    for key, value in json_items.items():
-                        if key == "mode":
-                            self.mode = value
+                    if Parameters["Mode1"] == self.SHELLY_25:
+                        for key, value in json_items.items():
+                            if key == "mode":
+                                self.mode = value
+
+            elif self.getGen() == self.SHELLY_GEN_2:
+
+                device_config = {
+                    'switches': [],
+                    'inputs': []
+                }
+
+                # Read 1 switches
+                switches=1
+
+                # Read 0 inputs
+                inputs=0
+                
+                for i in range(0,switches):
+                    response_switch_config = requests.get('http://'+Parameters['Address']+'/rpc/Switch.GetConfig?id='+str(i), headers=headers, auth=(Parameters['Username'], Parameters['Password']), timeout=(10,10))
+                    switch_config = json.loads(response_switch_config.text)
+                    device_config['switches'].append(switch_config)
+                    response_switch_config.close()
+
+                    if switch_config['in_mode'] == 'detached':
+                        response_input_config = requests.get('http://'+Parameters['Address']+'/rpc/Input.GetConfig?id='+str(i), headers=headers, auth=(Parameters['Username'], Parameters['Password']), timeout=(10,10))
+                        input_config = json.loads(response_input_config.text)
+                        device_config['inputs'].append(input_config)
+                        response_input_config.close()
+
+                for i in range(0,inputs):
+                    response_input_config = requests.get('http://'+Parameters['Address']+'/rpc/Input.GetConfig?id='+str(i), headers=headers, auth=(Parameters['Username'], Parameters['Password']), timeout=(10,10))
+                    input_config = json.loads(response_input_config.text)
+                    device_config['inputs'].append(input_config)
+                    response_input_config.close()
+
+                if len(Devices) == 0:
+                    if Parameters['Mode1'] == self.SHELLY_PLUS_1_PM:
+                        createSHP1PM(device_config)
+                    else:
+                        Domoticz.Log('Type: '+Parameters['Mode1'])
+
         except requests.exceptions.Timeout as e:
             Domoticz.Error(str(e))
 
@@ -147,120 +232,136 @@ class BasePlugin:
         url = "http://"+Parameters["Address"]
         headers = {'content-type':'application/json'}
         
-        if Parameters["Mode1"] != "SHDW-2" and Parameters["Mode1"] != self.SHELLY_TRV and Parameters["Mode1"] != self.SHELLY_GAS and Parameters["Mode1"] != self.SHELLY_EM and Parameters["Mode1"] != self.SHELLY_1L and Parameters["Mode1"] != self.SHELLY_MOTION:
-            if Parameters["Mode1"] == "SHSW-1" or Parameters["Mode1"] == "SHPLG-S" or Parameters["Mode1"] == self.SHELLY_1PM:
-                url = url + "/relay/" + str(Unit-1)
-            if Parameters["Mode1"] == "SHSW-25":
-                if self.mode == "relay":
-                    url = url + "/relay/" + str(Unit-2)
-                elif self.mode == "roller":
-                    url = url + "/roller/" + str(Unit-2)
-                    if str(Command) == "Open":
-                        url = url + "?go=open"
-                    elif str(Command) == "Close":
-                        url = url + "?go=close"
-                    elif str(Command) == "Stop":
-                        url = url + "?go=stop"
-            if Parameters["Mode1"] == "SHDM-1":
-                url = url + "/light/" + str(Unit-1)
-            if Parameters["Mode1"] == "SHRGBW2" or Parameters["Mode1"] == "SHBLB-1":
-                if self.mode == "color":
-                    url = url +"/color/" + str(Unit-1)
-                if self.mode == "white":
-                    url = url +"/white/" + str(Unit-1)
+        if self.getGen() == self.SHELLY_GEN_1:
+            if Parameters["Mode1"] != "SHDW-2" and Parameters["Mode1"] != self.SHELLY_TRV and Parameters["Mode1"] != self.SHELLY_GAS and Parameters["Mode1"] != self.SHELLY_EM and Parameters["Mode1"] != self.SHELLY_1L and Parameters["Mode1"] != self.SHELLY_MOTION:
+                if Parameters["Mode1"] == "SHSW-1" or Parameters["Mode1"] == "SHPLG-S" or Parameters["Mode1"] == self.SHELLY_1PM:
+                    url = url + "/relay/" + str(Unit-1)
+                if Parameters["Mode1"] == "SHSW-25":
+                    if self.mode == "relay":
+                        url = url + "/relay/" + str(Unit-2)
+                    elif self.mode == "roller":
+                        url = url + "/roller/" + str(Unit-2)
+                        if str(Command) == "Open":
+                            url = url + "?go=open"
+                        elif str(Command) == "Close":
+                            url = url + "?go=close"
+                        elif str(Command) == "Stop":
+                            url = url + "?go=stop"
+                if Parameters["Mode1"] == "SHDM-1":
+                    url = url + "/light/" + str(Unit-1)
+                if Parameters["Mode1"] == "SHRGBW2" or Parameters["Mode1"] == "SHBLB-1":
+                    if self.mode == "color":
+                        url = url +"/color/" + str(Unit-1)
+                    if self.mode == "white":
+                        url = url +"/white/" + str(Unit-1)
+                if str(Command) == "On":
+                    url = url + "?turn=on"
+                elif str(Command) == "Off":
+                    url = url + "?turn=off"
+                elif str(Command) == "Set Level":
+                    if self.mode == "color" and Parameters["Mode1"] != "SHDM-1":
+                        url = url + "?turn=on&gain=" + str(Level)
+                    elif self.mode == "white" or Parameters["Mode1"] == "SHDM-1":
+                        url = url + "?turn=on&brightness=" + str(Level)
+                    elif self.mode == "roller":
+                        url = url + "?go=to_pos&roller_pos="+str(Level)
+                elif str(Command) == "Set Color":
+                    Domoticz.Debug(str(Devices[Unit].Color))
+                    Domoticz.Debug(str(Hue))
+                    color_info=json.loads(Hue)
+                    r=color_info["r"]
+                    g=color_info["g"]
+                    b=color_info["b"]
+                    m=color_info["m"]
+                    cw=color_info["cw"]
+                    ww=color_info["ww"]
+                    Domoticz.Debug(str(color_info))
+                    url = url + "?turn=on"
+                    if self.mode == "color":
+                        url = url +"&red="+str(r)+"&green="+str(g)+"&blue="+str(b)+"&white="+str(cw)+"&gain="+str(Level)
+                    if self.mode == "white":
+                        url = url +"&white="+str(cw)+"&brightness="+str(Level)
+                else:
+                    Domoticz.Log("Unknown command: "+str(Command))
+            elif Parameters["Mode1"] == self.SHELLY_TRV:
+                if str(Command) == "Set Level":
+                    if Unit == 1:
+                        if Level > 0:
+                            url = url + "?schedule=true&schedule_profile="+str(Level/10)[0]
+                    elif Unit == 3:
+                        url = url + "/settings/thermostats/0?target_t="+str(Level)
+                elif str(Command) == "On":
+                    if Unit == 3:
+                        url = url + "/settings/thermostats/0?schedule=true"
+                    elif Unit == 4:
+                        url = url + "/settings?child_lock=true"
+                elif str(Command) == "Off":
+                    if Unit == 3:
+                        url = url + "/settings/thermostats/0?schedule=false"
+                    elif Unit == 4:
+                        url = url + "/settings?child_lock=false"
+                else:
+                    Domoticz.Log("Unknown command: "+str(Command))
+            elif Parameters["Mode1"] == self.SHELLY_GAS:
+                if str(Command) == "On":
+                    if Unit == 3:
+                        url = url + "/self_test"
+                    elif Unit == 4:
+                        url = url + "/unmute"
+                if str(Command) == "Off":
+                    if Unit == 4:
+                        url = url + "/mute"
+            elif Parameters["Mode1"] == self.SHELLY_EM or Parameters["Mode1"] == self.SHELLY_3EM:
+                if str(Command) == "On":
+                    if Unit == 1:
+                        url = url + "/relay/0?turn=on"
+                    elif Unit == 40:
+                        url = url + "/settings?led_status_disable=true"
+                elif str(Command) == "Off":
+                    if Unit == 1:
+                        url = url + "/relay/0?turn=off"
+                    elif Unit == 40:
+                        url = url + "/settings?led_status_disable=false"
+            elif Parameters["Mode1"] == self.SHELLY_1L:
+                if str(Command) == "On":
+                    if Unit == 1:
+                        url = url + "/relay/0?turn=on"
+                    elif Unit == 40:
+                        url = url + "/settings?led_status_disable=true"
+                elif str(Command) == "Off":
+                    if Unit == 1:
+                        url = url + "/relay/0?turn=off"
+                    elif Unit == 40:
+                        url = url + "/settings?led_status_disable=false"
+            elif Parameters["Mode1"] == self.SHELLY_MOTION:
+                if str(Command) == "On":
+                    if Unit == 3:
+                        url = url + "/settings?motion_enable=true"
+                elif str(Command) == "Off":
+                    if Unit == 3:
+                        url = url + "/settings?motion_enabled=false"            
+            Domoticz.Log("url: "+url)
+            try:
+                response = requests.get(url,headers=headers, auth=(Parameters["Username"], Parameters["Password"]), timeout=(10,10))
+                Domoticz.Debug(response.text)
+                response.close()
+            except requests.exceptions.Timeout as e:
+                Domoticz.Error(str(e))
+
+        elif self.getGen() == self.SHELLY_GEN_2:
+            
             if str(Command) == "On":
-                url = url + "?turn=on"
+                url = url + "/relay/" + str(Unit-100) + "?turn=on"
             elif str(Command) == "Off":
-                url = url + "?turn=off"
-            elif str(Command) == "Set Level":
-                if self.mode == "color" and Parameters["Mode1"] != "SHDM-1":
-                    url = url + "?turn=on&gain=" + str(Level)
-                elif self.mode == "white" or Parameters["Mode1"] == "SHDM-1":
-                    url = url + "?turn=on&brightness=" + str(Level)
-                elif self.mode == "roller":
-                    url = url + "?go=to_pos&roller_pos="+str(Level)
-            elif str(Command) == "Set Color":
-                Domoticz.Debug(str(Devices[Unit].Color))
-                Domoticz.Debug(str(Hue))
-                color_info=json.loads(Hue)
-                r=color_info["r"]
-                g=color_info["g"]
-                b=color_info["b"]
-                m=color_info["m"]
-                cw=color_info["cw"]
-                ww=color_info["ww"]
-                Domoticz.Debug(str(color_info))
-                url = url + "?turn=on"
-                if self.mode == "color":
-                    url = url +"&red="+str(r)+"&green="+str(g)+"&blue="+str(b)+"&white="+str(cw)+"&gain="+str(Level)
-                if self.mode == "white":
-                    url = url +"&white="+str(cw)+"&brightness="+str(Level)
-            else:
-                Domoticz.Log("Unknown command: "+str(Command))
-        elif Parameters["Mode1"] == self.SHELLY_TRV:
-            if str(Command) == "Set Level":
-                if Unit == 1:
-                    if Level > 0:
-                        url = url + "?schedule=true&schedule_profile="+str(Level/10)[0]
-                elif Unit == 3:
-                    url = url + "/settings/thermostats/0?target_t="+str(Level)
-            elif str(Command) == "On":
-                if Unit == 3:
-                    url = url + "/settings/thermostats/0?schedule=true"
-                elif Unit == 4:
-                    url = url + "/settings?child_lock=true"
-            elif str(Command) == "Off":
-                if Unit == 3:
-                    url = url + "/settings/thermostats/0?schedule=false"
-                elif Unit == 4:
-                    url = url + "/settings?child_lock=false"
-            else:
-                Domoticz.Log("Unknown command: "+str(Command))
-        elif Parameters["Mode1"] == self.SHELLY_GAS:
-            if str(Command) == "On":
-                if Unit == 3:
-                    url = url + "/self_test"
-                elif Unit == 4:
-                    url = url + "/unmute"
-            if str(Command) == "Off":
-                if Unit == 4:
-                    url = url + "/mute"
-        elif Parameters["Mode1"] == self.SHELLY_EM or Parameters["Mode1"] == self.SHELLY_3EM:
-            if str(Command) == "On":
-                if Unit == 1:
-                    url = url + "/relay/0?turn=on"
-                elif Unit == 40:
-                    url = url + "/settings?led_status_disable=true"
-            elif str(Command) == "Off":
-                if Unit == 1:
-                    url = url + "/relay/0?turn=off"
-                elif Unit == 40:
-                    url = url + "/settings?led_status_disable=false"
-        elif Parameters["Mode1"] == self.SHELLY_1L:
-            if str(Command) == "On":
-                if Unit == 1:
-                    url = url + "/relay/0?turn=on"
-                elif Unit == 40:
-                    url = url + "/settings?led_status_disable=true"
-            elif str(Command) == "Off":
-                if Unit == 1:
-                    url = url + "/relay/0?turn=off"
-                elif Unit == 40:
-                    url = url + "/settings?led_status_disable=false"
-        elif Parameters["Mode1"] == self.SHELLY_MOTION:
-            if str(Command) == "On":
-                if Unit == 3:
-                    url = url + "/settings?motion_enable=true"
-            elif str(Command) == "Off":
-                if Unit == 3:
-                    url = url + "/settings?motion_enabled=false"            
-        Domoticz.Log("url: "+url)
-        try:
-            response = requests.get(url,headers=headers, auth=(Parameters["Username"], Parameters["Password"]), timeout=(10,10))
-            Domoticz.Debug(response.text)
-            response.close()
-        except requests.exceptions.Timeout as e:
-            Domoticz.Error(str(e))
+                url = url + "/relay/" + str(Unit-100) + "?turn=off"
+            Domoticz.Log("url: "+url)
+            
+            try:
+                response = requests.get(url,headers=headers, auth=(Parameters["Username"], Parameters["Password"]), timeout=(10,10))
+                Domoticz.Debug(response.text)
+                response.close()
+            except requests.exceptions.Timeout as e:
+                Domoticz.Error(str(e))
 
         if str(Command) == "On":
             Devices[Unit].Update(nValue=1,sValue="On")
@@ -288,41 +389,76 @@ class BasePlugin:
 
     def onHeartbeat(self):
         Domoticz.Log("onHeartbeat called")
-        if Parameters["Mode1"] != "SHDW-2":
-            headers = {'content-type':'application/json'}
+        headers = {'content-type':'application/json'}
+
+        if self.getGen() == self.SHELLY_GEN_1:
+            if Parameters["Mode1"] != "SHDW-2":
+                try:
+                    request_shelly_status = requests.get("http://"+Parameters["Address"]+"/status",headers=headers, auth=(Parameters["Username"], Parameters["Password"]), timeout=(10,10))
+                    Domoticz.Debug(request_shelly_status.text)
+                    json_request = json.loads(request_shelly_status.text)
+                    #Domoticz.Log(str(json_request))
+                    if Parameters["Mode1"] == self.SHELLY_1 or Parameters["Mode1"] == self.SHELLY_PLUG or Parameters["Mode1"] == self.SHELLY_1PM or Parameters["Mode1"] == self.SHELLY_1L:
+                        updateSHSW1(json_request, self)
+                    elif Parameters["Mode1"] == self.SHELLY_25:
+                        updateSHSW25(json_request, self)
+                    elif Parameters["Mode1"] == self.SHELLY_MOTION:
+                        updateMOTION(json_request)
+                    elif Parameters["Mode1"] == self.SHELLY_TRV:
+                        updateTRV(self, json_request)
+                    elif Parameters["Mode1"] == self.SHELLY_DIMMER:
+                        updateSHDM1(json_request, self)
+                    elif Parameters["Mode1"] == self.SHELLY_RGBW2 or Parameters["Mode1"] == self.SHELLY_BULB:
+                        updateSHRGBW2(json_request, self)
+                    elif Parameters["Mode1"] == self.SHELLY_SMOKE:
+                        updateSMOKE(json_request)
+                    elif Parameters["Mode1"] == self.SHELLY_HT:
+                        updateHT(json_request)
+                    elif Parameters["Mode1"] == self.SHELLY_FLOOD:
+                        updateFlood(json_request)
+                    #elif Parameters["Mode1"] == self.SHELLY_DW:
+                    elif Parameters["Mode1"] == self.SHELLY_GAS:
+                        updateGAS(self, json_request)
+                    elif Parameters["Mode1"] == self.SHELLY_EM or Parameters["Mode1"] == self.SHELLY_3EM:
+                        updateEM(json_request, self)
+                    elif Parameters["Mode1"] == self.SHELLY_IX3:
+                        updateSHIX3(json_request)
+                    request_shelly_status.close()
+                except requests.exceptions.Timeout as e:
+                    Domoticz.Error(str(e))
+
+        elif self.getGen() == self.SHELLY_GEN_2:
+
+            device_status = {
+                'switches': [],
+                'inputs': []
+            }
+
+            # Read 1 switches
+            switches=1
+
+            # Read 0 inputs
+            inputs=0
+            
             try:
-                request_shelly_status = requests.get("http://"+Parameters["Address"]+"/status",headers=headers, auth=(Parameters["Username"], Parameters["Password"]), timeout=(10,10))
-                Domoticz.Debug(request_shelly_status.text)
-                json_request = json.loads(request_shelly_status.text)
-                #Domoticz.Log(str(json_request))
-                if Parameters["Mode1"] == self.SHELLY_1 or Parameters["Mode1"] == self.SHELLY_PLUG or Parameters["Mode1"] == self.SHELLY_1PM or Parameters["Mode1"] == self.SHELLY_1L:
-                    updateSHSW1(json_request, self)
-                elif Parameters["Mode1"] == self.SHELLY_25:
-                    updateSHSW25(json_request, self)
-                elif Parameters["Mode1"] == self.SHELLY_MOTION:
-                    updateMOTION(json_request)
-                elif Parameters["Mode1"] == self.SHELLY_TRV:
-                    updateTRV(self, json_request)
-                elif Parameters["Mode1"] == self.SHELLY_DIMMER:
-                    updateSHDM1(json_request, self)
-                elif Parameters["Mode1"] == self.SHELLY_RGBW2 or Parameters["Mode1"] == self.SHELLY_BULB:
-                    updateSHRGBW2(json_request, self)
-                elif Parameters["Mode1"] == self.SHELLY_SMOKE:
-                    updateSMOKE(json_request)
-                elif Parameters["Mode1"] == self.SHELLY_HT:
-                    updateHT(json_request)
-                elif Parameters["Mode1"] == self.SHELLY_FLOOD:
-                    updateFlood(json_request)
-                #elif Parameters["Mode1"] == self.SHELLY_DW:
-                elif Parameters["Mode1"] == self.SHELLY_GAS:
-                    updateGAS(self, json_request)
-                elif Parameters["Mode1"] == self.SHELLY_EM or Parameters["Mode1"] == self.SHELLY_3EM:
-                    updateEM(json_request, self)
-                elif Parameters["Mode1"] == self.SHELLY_IX3:
-                    updateSHIX3(json_request)
-                request_shelly_status.close()
+                for i in range(0,switches):
+                    response_switch_status = requests.get('http://'+Parameters['Address']+'/rpc/Switch.GetStatus?id='+str(i), headers=headers, auth=(Parameters['Username'], Parameters['Password']), timeout=(10,10))
+                    switch_status = json.loads(response_switch_status.text)
+                    device_status['switches'].append(switch_status)
+                    response_switch_status.close()
+
+                for i in range(0,inputs):
+                    response_input_status = requests.get('http://'+Parameters['Address']+'/rpc/Input.GetStatus?id='+str(i), headers=headers, auth=(Parameters['Username'], Parameters['Password']), timeout=(10,10))
+                    input_status = json.loads(response_input_status.text)
+                    device_status['inputs'].append(input_status)
+                    response_input_status.close()
+
+                if Parameters['Mode1'] == self.SHELLY_PLUS_1_PM:
+                    updateSHP1PM(device_status)
             except requests.exceptions.Timeout as e:
                 Domoticz.Error(str(e))
+
+            
 
 global _plugin
 _plugin = BasePlugin()
@@ -972,3 +1108,46 @@ def updateMeter(meter, count, self):
             total = total/60
             total = int(total)
             Devices[31+count].Update(nValue=0,sValue=power+";"+str(total))
+
+def createSHP1PM(device_config):
+
+    Domoticz.Log("Got deviceConfig: " + str(device_config))
+
+    for switch in device_config['switches']:
+        name = ""
+        if 'name' in switch and switch['name'] != '':
+            name = switch['name']
+        if name == "":
+            name = "Switch"+switch["id"]
+        Domoticz.Device(Name=name, Unit=100+int(switch["id"]), Used=1, Type=244, Subtype=73).Create()
+
+        # meter = {"power":0,"total":0}
+        # createMeter(name, meter, 100+int(switch["id"]))
+
+    for input in device_config['inputs']:
+        name = ""
+        if 'name' in input and input['name'] != '':
+            name = input['name']
+        if name == "":
+            name = "Input"+input["id"]
+        Domoticz.Device(Name=name, Unit=200+int(input["id"]), Used=1, Type=244, Subtype=62, Switchtype=2).Create()
+
+def updateSHP1PM(device_status):
+
+    Domoticz.Log("Got deviceStatus: " + str(device_status))
+
+    for switch in device_status['switches']:
+
+        if "output" in switch and switch['output'] == True:
+            if Devices[100+int(switch['id'])].nValue != 1:
+                Devices[100+int(switch['id'])].Update(nValue=1, sValue="On")
+        else:
+            Devices[100+int(switch['id'])].Update(nValue=0, sValue="Off")
+
+    for input in device_status['inputs']:
+
+        if "state" in switch and switch['state'] == True:
+            if Devices[200+int(switch['id'])].nValue != 1:
+                Devices[200+int(switch['id'])].Update(nValue=1, sValue="On")
+        else:
+            Devices[200+int(switch['id'])].Update(nValue=0, sValue="Off")
