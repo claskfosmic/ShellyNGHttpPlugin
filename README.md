@@ -1,11 +1,14 @@
-Welcome to the ShellyCloudPlugin wiki!
+Welcome to the ShellyNGHttpPlugin wiki!
 
 # Description
-This plugin makes it possible to use Shelly Devices in Domoticz.
-You can find th specific configuration and ToDo's on the Wiki page.
+This plugin makes it possible to use Shelly Devices from the first generation and the second generation of Shelly devices, called Shelly-NG, in Domoticz. You can find the specific configuration and ToDo's on the Wiki page.
 
 # Features
-Currently the following Shelly devices are supported
+
+Currently the following Shelly Gen 2 devices are supported:
+* Shelly Plus 1PM (Not metered)
+
+Currently the following Shelly Gen 1 devices are supported (Thanks to https://github.com/mario-peters/ShellyCloudPlugin)
 * Shelly 1
 * Shelly PM
 * Shelly 1L
@@ -25,10 +28,30 @@ Currently the following Shelly devices are supported
 * Shelly 3EM
 
 # Changelog
-* v.1.0.1 Small fix for switching on/off Shelly 2.5
-* v.1.0.0 Initial version
+* v.0.0.1 First step into adding Gen 2 devices
 
-# Feature list
+# Feature list (Gen 2 Devices)
+* Shelly Plus 1
+* Shelly Plus 1 PM
+* Shelly Plus 2 PM
+* Shelly Plus I4
+* Shelly Plus Plug IT
+* Shelly Plus Plug S
+* Shelly Plus Plug UK
+* Shelly Plus Plug US
+* Shelly Plus H&T
+* Shelly Plus Smoke
+* Shelly Plus WallDimmer
+* Shelly Pro 1
+* Shelly Pro 1 PM
+* Shelly Pro 2
+* Shelly Pro 2 PM
+* Shelly Pro 3
+* Shelly Pro 4 PM
+* Shelly Pro Dual Cover PM
+* Shelly Pro 3 EM
+
+# Feature list (Gen 1 Devices)
 * Shelly2
 * Shelly Plug
 * Shelly PlugS
