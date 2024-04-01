@@ -168,6 +168,7 @@ class BasePlugin:
     HeartbeatInSeconds = 30
 
     gen2_switches=[]
+    gen2_covers=[]
     gen2_inputs=[]
 
     def __init__(self):
@@ -234,9 +235,14 @@ class BasePlugin:
                 headers = {'content-type':'application/json'}
 
                 if self.getGen() == self.SHELLY_GEN_1:
-                    response_shelly = requests.get("http://"+Parameters["Address"]+"/settings", headers=headers, auth=(Parameters["Username"], Parameters["Password"]), timeout=(10,10))
-                    json_items = json.loads(response_shelly.text)
-                    response_shelly.close()
+                    url = "http://"+Parameters["Address"]+"/settings"
+                    try:
+                        response_shelly = requests.get(url, headers=headers, auth=(Parameters["Username"], Parameters["Password"]), timeout=(10,10))
+                        json_items = json.loads(response_shelly.text)
+                        response_shelly.close()
+                    except Exception as e:
+                        Domoticz.Error("243 - Failed to call URL '%s', got error: '%s'" % (url, str(e)))
+
                     if len(Devices) == 0:
                         if str(Settings["AcceptNewHardware"]) == "0":
                             Domoticz.Log("--> New hardware creation disabled! <-- ")
@@ -307,18 +313,20 @@ class BasePlugin:
                         'inputs': []
                     }
 
-                    response_system_status = requests.get('http://'+Parameters['Address']+'/rpc/Sys.GetStatus', headers=headers, auth=(Parameters['Username'], Parameters['Password']), timeout=(10,10))
+                    url = 'http://'+Parameters['Address']+'/rpc/Sys.GetStatus'
                     try:
+                        response_system_status = requests.get(url, headers=headers, auth=(Parameters['Username'], Parameters['Password']), timeout=(10,10))
                         system_status = json.loads(response_system_status.text)
                         device_info['system'] = system_status
                         response_system_status.close()
                     except Exception as e:
-                        Domoticz.Error("Failed to get status, got error %s" % str(e))
+                        Domoticz.Error("322 - Failed to call URL '%s', got error: '%s'" % (url, str(e)))
                         
                     if Parameters['Mode1'] == self.SHELLY_PLUS_1 or Parameters['Mode1'] == self.SHELLY_PLUS_1_PM or Parameters['Mode1'] == self.SHELLY_PLUS_PLUG:
                         self.gen2_switches=[0]
                     elif Parameters['Mode1'] == self.SHELLY_PLUS_2_PM:
                         self.gen2_switches=[0,1]
+                        self.gen2_covers=[0]
                     elif Parameters['Mode1'] == self.SHELLY_PLUS_I4:
                         self.gen2_inputs=[0,1,2,3]
 
@@ -326,30 +334,56 @@ class BasePlugin:
                         # Read swithces
                         #
                         for i in self.gen2_switches:
-                            response_switch_config = requests.get('http://'+Parameters['Address']+'/rpc/Switch.GetConfig?id='+str(i), headers=headers, auth=(Parameters['Username'], Parameters['Password']), timeout=(10,10))
-                            switch_config = json.loads(response_switch_config.text)
-                            device_info['switches'].append(switch_config)
-                            response_switch_config.close()
+                            url = 'http://'+Parameters['Address']+'/rpc/Switch.GetConfig?id='+str(i)
+                            try:
+                                response_switch_config = requests.get(url, headers=headers, auth=(Parameters['Username'], Parameters['Password']), timeout=(10,10))
+                                switch_config = json.loads(response_switch_config.text)
+                                device_info['switches'].append(switch_config)
+                                response_switch_config.close()
 
-                            # Check if switch id detached, if so, read inputs.
-                            #
-                            if switch_config['in_mode'] == 'detached':
-                                self.gen2_inputs.append(i)
+                                # Check if switch id detached, if so, read inputs.
+                                #
+                                if switch_config['in_mode'] == 'detached':
+                                    self.gen2_inputs.append(i)
+                            except Exception as e:
+                                Domoticz.Error("347 - Failed to call URL '%s', got error: '%s'" % (url, str(e)))
+
+                    if len(self.gen2_covers) > 0:
+                        # Read swithces
+                        #
+                        for i in self.gen2_covers:
+                            url = 'http://'+Parameters['Address']+'/rpc/Cover.GetConfig?id='+str(i)
+                            try:
+                                response_cover_config = requests.get(url, headers=headers, auth=(Parameters['Username'], Parameters['Password']), timeout=(10,10))
+                                switch_config = json.loads(response_cover_config.text)
+                                device_info['covers'].append(switch_config)
+                                response_cover_config.close()
+
+                                # Check if switch id detached, if so, read inputs.
+                                #
+                                # if switch_config['in_mode'] == 'detached':
+                                #   self.gen2_inputs.append(0)
+                            except Exception as e:
+                                Domoticz.Error("347 - Failed to call URL '%s', got error: '%s'" % (url, str(e)))
 
                     if len(self.gen2_inputs) > 0:
                         # Read inputs
                         #
                         for i in self.gen2_inputs:
-                            response_input_config = requests.get('http://'+Parameters['Address']+'/rpc/Input.GetConfig?id='+str(i), headers=headers, auth=(Parameters['Username'], Parameters['Password']), timeout=(10,10))
-                            input_config = json.loads(response_input_config.text)
+                            url = 'http://'+Parameters['Address']+'/rpc/Input.GetConfig?id='+str(i)
+                            try:
+                                response_input_config = requests.get(url, headers=headers, auth=(Parameters['Username'], Parameters['Password']), timeout=(10,10))
+                                input_config = json.loads(response_input_config.text)
 
-                            # In case of Shellyi4, only handle inputs of type 'swicth'. Inputs of type
-                            # 'button' will return null when fetching the status of the input when using
-                            # HTTP.
-                            if Parameters['Mode1'] != self.SHELLY_PLUS_I4 or (Parameters['Mode1'] == self.SHELLY_PLUS_I4 and input_config['type'] == 'switch'):
-                                device_info['inputs'].append(input_config)
+                                # In case of Shellyi4, only handle inputs of type 'swicth'. Inputs of type
+                                # 'button' will return null when fetching the status of the input when using
+                                # HTTP.
+                                if Parameters['Mode1'] != self.SHELLY_PLUS_I4 or (Parameters['Mode1'] == self.SHELLY_PLUS_I4 and input_config['type'] == 'switch'):
+                                    device_info['inputs'].append(input_config)
 
-                            response_input_config.close()
+                                response_input_config.close()
+                            except Exception as e:
+                                Domoticz.Error("366 - Failed to call URL '%s', got error: '%s'" % (url, str(e)))
 
                     if len(Devices) == 0:
                         if str(Settings["AcceptNewHardware"]) == "0":
@@ -492,8 +526,10 @@ class BasePlugin:
                 response = requests.get(url,headers=headers, auth=(Parameters["Username"], Parameters["Password"]), timeout=(10,10), verify=False)
                 Domoticz.Debug(response.text)
                 response.close()
-            except requests.exceptions.Timeout as e:
-                Domoticz.Error(str(e))
+            # except requests.exceptions.Timeout as e:
+                # Domoticz.Error(str(e))
+            except Exception as e:
+                Domoticz.Error("512 - Failed to call URL '%s', got error: '%s'" % (url, str(e)))
 
         elif self.getGen() == self.SHELLY_GEN_2:
 
@@ -510,8 +546,10 @@ class BasePlugin:
                     response = requests.get(url,headers=headers, auth=(Parameters["Username"], Parameters["Password"]), timeout=(10,10))
                     Domoticz.Debug(response.text)
                     response.close()
-                except requests.exceptions.Timeout as e:
-                    Domoticz.Error(str(e))
+                # except requests.exceptions.Timeout as e:
+                #    Domoticz.Error(str(e))
+                except Exception as e:
+                    Domoticz.Error("532 - Failed to call URL '%s', got error: '%s'" % (url, str(e)))
             else:
                 # Reset command
                 Command = None
@@ -547,8 +585,9 @@ class BasePlugin:
         headers = {'content-type':'application/json'}
         if self.getGen() == self.SHELLY_GEN_1:
             if Parameters["Mode1"] != "SHDW-2":
+                url = "http://"+Parameters["Address"]+"/status" 
                 try:
-                    request_shelly_status = requests.get("http://"+Parameters["Address"]+"/status",headers=headers, auth=(Parameters["Username"], Parameters["Password"]), timeout=(10,10))
+                    request_shelly_status = requests.get(url,headers=headers, auth=(Parameters["Username"], Parameters["Password"]), timeout=(10,10))
                     Domoticz.Debug(request_shelly_status.text)
                     json_request = json.loads(request_shelly_status.text)
                     #Domoticz.Log(str(json_request))
@@ -578,8 +617,11 @@ class BasePlugin:
                     elif Parameters["Mode1"] == self.SHELLY_IX3:
                         updateSHIX3(json_request)
                     request_shelly_status.close()
-                except requests.exceptions.Timeout as e:
-                    Domoticz.Error(str(e))
+                # except requests.exceptions.Timeout as e:
+                #    Domoticz.Error(str(e))
+                except Exception as e:
+                    Domoticz.Error("603 - Failed to call URL '%s', got error: '%s'" % (url, str(e)))
+                
 
         elif self.getGen() == self.SHELLY_GEN_2:
 
@@ -594,20 +636,28 @@ class BasePlugin:
             if len(self.gen2_switches) > 0:
                 for i in self.gen2_switches:
                     # Domoticz.Log("Call URL: http://%s/rpc/Switch.GetStatus?id=%s" % (Parameters['Address'], str(i)))
-                    response_switch_status = requests.get('http://'+Parameters['Address']+'/rpc/Switch.GetStatus?id='+str(i), headers=headers, auth=(Parameters['Username'], Parameters['Password']), timeout=(10,10))
-                    switch_status = json.loads(response_switch_status.text)
-                    # Domoticz.Log("Switch Status: %s" % switch_status)
-                    device_status['switches'].append(switch_status)
-                    response_switch_status.close()
+                    url = 'http://'+Parameters['Address']+'/rpc/Switch.GetStatus?id='+str(i)
+                    try:
+                        response_switch_status = requests.get(url, headers=headers, auth=(Parameters['Username'], Parameters['Password']), timeout=(10,10))
+                        switch_status = json.loads(response_switch_status.text)
+                        # Domoticz.Log("Switch Status: %s" % switch_status)
+                        device_status['switches'].append(switch_status)
+                        response_switch_status.close()
+                    except Exception as e:
+                        Domoticz.Error("627 - Failed to call URL '%s', got error: '%s'" % (url, str(e)))
 
             if len(self.gen2_inputs) > 0:
                 for i in self.gen2_inputs:
                     # Domoticz.Log("Call URL: http://%s/rpc/Input.GetStatus?id=%s" % (Parameters['Address'], str(i)))
-                    response_input_status = requests.get('http://'+Parameters['Address']+'/rpc/Input.GetStatus?id='+str(i), headers=headers, auth=(Parameters['Username'], Parameters['Password']), timeout=(10,10))
-                    input_status = json.loads(response_input_status.text)
-                    # Domoticz.Log("Switch Status: %s" % input_status)
-                    device_status['inputs'].append(input_status)
-                    response_input_status.close()
+                    url = 'http://'+Parameters['Address']+'/rpc/Input.GetStatus?id='+str(i)
+                    try:
+                        response_input_status = requests.get(url, headers=headers, auth=(Parameters['Username'], Parameters['Password']), timeout=(10,10))
+                        input_status = json.loads(response_input_status.text)
+                        # Domoticz.Log("Switch Status: %s" % input_status)
+                        device_status['inputs'].append(input_status)
+                        response_input_status.close()
+                    except Exception as e:
+                        Domoticz.Error("640 - Failed to call URL '%s', got error: '%s'" % (url, str(e)))
 
             updateShellyGen2(device_status)
 
@@ -1348,6 +1398,7 @@ def updateMeter(meter, count, self):
 #
 def createShellyGen2(device_info):
     Domoticz.Debug("createShellyGen2(%s)" % (device_info))
+
     for switch in device_info['switches']:
         unitName = "%s-%s-Switch-%d" % (Parameters["Mode1"], device_info['system']['mac'], switch['id'])
         Domoticz.Debug("Go handle unit '%s'" % unitName)
@@ -1364,6 +1415,23 @@ def createShellyGen2(device_info):
         
             meter = {"power":0,"total":0}
             createMeter(name, meter, int(switch["id"]))
+
+    for cover in device_info['covers']:
+        unitName = "%s-%s-Cover-%d" % (Parameters["Mode1"], device_info['system']['mac'], cover['id'])
+        Domoticz.Debug("Go handle unit '%s'" % unitName)
+        unitNo = searchdevice(unitName)
+        Domoticz.Debug("Got unitNo #%d for unit '%s'" % (unitNo, unitName))
+        if unitNo<0: # if device does not exists in Domoticz, than create it
+            name = ""
+            if 'name' in cover and cover['name'] != '':
+                name = cover['name']
+            if name == "" or name == None:
+                name = "Cover-"+str(cover["id"])
+            Domoticz.Device(Name=name, Unit=1+int(cover["id"]), Used=1, Type=244, Subtype=62, Switchtype=21, DeviceID=unitName).Create()
+            Domoticz.Log("Created cover with name '%s' and id '%d' - DeviceID '%s'" % (name, 10+int(switch["id"]), unitName))
+        
+            meter = {"power":0,"total":0}
+            createMeter(name, meter, int(cover["id"]))
 
     for input in device_info['inputs']:
         unitName = "%s-%s-Input-%d" % (Parameters["Mode1"], device_info['system']['mac'], input['id'])
